@@ -56,9 +56,16 @@ jobs:
           CONFIG_TARGET_SUBTARGET="armv8"
           CONFIG_TARGET_PROFILE="DEVICE_nsy_g68-plus"
 
+          # Bootloader / firmware (required to assemble the rockchip image)
+          CONFIG_PACKAGE_trusted-firmware-a-rk3568=y
+          CONFIG_PACKAGE_u-boot-nsy-g68-plus-rk3568=y
+
           # Web UI
           CONFIG_PACKAGE_luci=y
           CONFIG_PACKAGE_luci-ssl=y
+
+          # Keep per-package build logs for failure diagnostics
+          CONFIG_BUILD_LOG=y
           EOF
 
       - name: Update and install feeds
@@ -76,7 +83,18 @@ jobs:
         run: make -j"$(nproc)" download
 
       - name: Build firmware
-        run: make -j"$(nproc)"
+        run: make -j"$(nproc)" || make -j1 V=s
+
+      - name: Dump build logs on failure
+        if: failure()
+        run: |
+          echo "=== error.txt files ==="
+          find logs -name 'error.txt' -print -exec cat {} \; 2>/dev/null || true
+          echo "=== target logs (tail) ==="
+          for f in $(find logs -path '*target*' -name '*.txt' 2>/dev/null); do
+            echo "===== $f ====="
+            tail -n 120 "$f"
+          done
 
       - name: Collect firmware
         run: |

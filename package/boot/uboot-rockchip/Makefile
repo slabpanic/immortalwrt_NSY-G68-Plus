@@ -560,6 +560,7 @@ UBOOT_TARGETS := \
   lyt-t68m-rk3568 \
   mmbox-anas3035-rk3568 \
   mrkaio-m68s-rk3568 \
+  nsy-g68-plus-rk3568 \
   nanopi-r5c-rk3568 \
   nanopi-r5s-rk3568 \
   photonicat-rk3568 \

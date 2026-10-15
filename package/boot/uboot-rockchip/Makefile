@@ -324,6 +324,13 @@ define U-Boot/mrkaio-m68s-rk3568
     ezpro_mrkaio-m68s
 endef
 
+define U-Boot/nsy-g68-plus-rk3568
+  $(U-Boot/rk3568/Default)
+  NAME:=NSY G68 PLUS
+  BUILD_DEVICES:= \
+    nsy_g68-plus
+endef
+
 define U-Boot/nanopi-r5c-rk3568
   $(U-Boot/rk3568/Default)
   NAME:=NanoPi R5C

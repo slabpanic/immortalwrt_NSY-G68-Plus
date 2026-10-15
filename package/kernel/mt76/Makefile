@@ -625,6 +625,7 @@ define KernelPackage/mt7916-firmware/install
 		$(PKG_BUILD_DIR)/firmware/mt7916_wm.bin \
 		$(PKG_BUILD_DIR)/firmware/mt7916_rom_patch.bin \
 		$(1)/lib/firmware/mediatek
+	$(CP) $(CURDIR)/firmware/mt7916_eeprom.bin $(1)/lib/firmware/mediatek/
 endef
 
 define KernelPackage/mt7981-firmware/install

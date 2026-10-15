@@ -346,6 +346,16 @@ define Device/nlnet_xiguapi-v3
 endef
 TARGET_DEVICES += nlnet_xiguapi-v3
 
+define Device/nsy_g68-plus
+  $(Device/rk3568)
+  DEVICE_VENDOR := NSY
+  DEVICE_MODEL := G68-Plus
+  DEVICE_DTS := rk3568-nsy-g68-plus
+  UBOOT_DEVICE_NAME := nsy-g68-plus-rk3568
+  DEVICE_PACKAGES := kmod-mt7916-firmware kmod-switch-rtl8367b wpad-openssl
+endef
+TARGET_DEVICES += nsy_g68-plus
+
 define Device/pine64_rock64
   $(Device/rk3328)
   DEVICE_VENDOR := Pine64

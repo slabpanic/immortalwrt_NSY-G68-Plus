@@ -1,0 +1,20 @@
+From: NSY G68-Plus board support
+Subject: [PATCH] mt76: treat chip id 0x7916 as MT7916
+
+Some MT7916 PCIe modules report the chip id as 0x7916 instead of the
+value 0x7906 that upstream checks in is_mt7916(). Accept both so that
+the MT7916 specific code paths (eeprom size, calibration group size,
+DMA/WED handling) are taken and the default EEPROM bin is loaded for
+boards without a standard on-board EEPROM.
+
+--- a/mt76_connac.h
++++ b/mt76_connac.h
+@@ -210,7 +210,7 @@ static inline bool is_mt7915(struct mt76_dev *dev)
+ 
+ static inline bool is_mt7916(struct mt76_dev *dev)
+ {
+-	return mt76_chip(dev) == 0x7906;
++	return mt76_chip(dev) == 0x7906 || mt76_chip(dev) == 0x7916;
+ }
+ 
+ static inline bool is_mt7981(struct mt76_dev *dev)

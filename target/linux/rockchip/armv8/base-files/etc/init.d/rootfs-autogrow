@@ -1,0 +1,123 @@
+#!/bin/sh /etc/rc.common
+
+START=14
+
+autogrow_log() {
+	logger -t rootfs-autogrow "$*"
+}
+
+grow_root_partition() {
+	local disk="$1" root="$2" sectors="$3" start="$4" backup="$5"
+	local table label sectorsize partitions node type size boot_start boot_size
+	local new_size
+
+	rootfs_partition_grown=0
+	table=$(sfdisk --json "$disk") || return 1
+	json_init
+	json_load "$table" || return 1
+	json_select partitiontable || return 1
+	json_get_vars label sectorsize
+	[ "$label" = dos ] && [ "$sectorsize" = 512 ] || return 1
+	json_get_keys partitions partitions
+	[ "$partitions" = '1 2' ] || return 1
+	json_select partitions
+	json_select 1
+	json_get_vars node type
+	json_get_var boot_start start
+	json_get_var boot_size size
+	[ "$node" = "${disk}p1" ] && [ "$type" = 83 ] || return 1
+	json_select ..
+	json_select 2
+	json_get_vars node type size
+	json_get_var new_size start
+	[ "$node" = "$root" ] && [ "$type" = 83 ] && [ "$new_size" = "$start" ] || return 1
+
+	for new_size in "$sectors" "$start" "$size" "$boot_start" "$boot_size"; do
+		case "$new_size" in
+			''|*[!0-9]*) return 1 ;;
+		esac
+	done
+	[ "$boot_start" -gt 0 ] && [ "$boot_size" -gt 0 ] && [ "$size" -gt 0 ] || return 1
+	[ "$((boot_start + boot_size))" -le "$start" ] || return 1
+	new_size=$((sectors - start))
+	[ "$new_size" -ge "$size" ] && [ "$new_size" -le 4294967295 ] || return 1
+	[ "$new_size" -gt "$size" ] || return 0
+
+	# Keep a recoverable copy and never move the partition start or wipe signatures.
+	sfdisk --dump "$disk" > "$backup" || return 1
+	sync
+	autogrow_log "Growing $root from $size to $new_size sectors"
+	printf 'start=%s, size=%s\n' "$start" "$new_size" |
+		sfdisk --no-reread --no-tell-kernel --wipe never --wipe-partitions never \
+			-N 2 "$disk" >/dev/null || return 1
+	sync
+	table=$(sfdisk --json "$disk") || return 1
+	json_init
+	json_load "$table" || return 1
+	json_select partitiontable
+	json_select partitions
+	json_select 2
+	json_get_var boot_start start
+	json_get_var size size
+	[ "$boot_start" = "$start" ] && [ "$size" = "$new_size" ] || return 1
+	rootfs_partition_grown=1
+}
+
+start() {
+	local dev sysroot sysdisk disk root sectors start size new_size
+
+	[ "$(board_name)" = 'nsy,g68-plus' ] || return 0
+
+	# Resolve the mounted root by major:minor, including when it is /dev/root.
+	dev=$(awk '$5 == "/" && / - ext4 / { print $3; exit }' /proc/self/mountinfo)
+	[ -n "$dev" ] || return 0
+	sysroot=$(readlink -f "/sys/dev/block/$dev")
+	[ -f "$sysroot/partition" ] && [ "$(cat "$sysroot/partition")" = 2 ] || return 0
+	sysdisk=${sysroot%/*}
+	disk=${sysdisk##*/}
+	root=${sysroot##*/}
+	case "$disk" in
+		mmcblk[0-9]*) ;;
+		*) return 0 ;;
+	esac
+	[ "$root" = "${disk}p2" ] || return 0
+	[ "$(cat "$sysdisk/device/type")" = MMC ] || return 0
+	[ "$(cat "$sysdisk/queue/logical_block_size")" = 512 ] || return 0
+	[ -b "/dev/$disk" ] && [ -b "/dev/$root" ] || return 0
+
+	. /usr/share/libubox/jshn.sh
+	sectors=$(cat "$sysdisk/size") || return 1
+	start=$(cat "$sysroot/start") || return 1
+	size=$(cat "$sysroot/size") || return 1
+	grow_root_partition "/dev/$disk" "/dev/$root" "$sectors" "$start" \
+		/etc/rootfs-autogrow.partition-table || {
+		autogrow_log 'Cannot grow root partition; check the partition layout and tools'
+		return 1
+	}
+
+	new_size=$((sectors - start))
+	if [ "$size" -lt "$new_size" ]; then
+		# BLKPG can update the size of a mounted partition without removing it.
+		partx --update --nr 2 "/dev/$disk" >/dev/null 2>&1
+		size=$(cat "$sysroot/size") || return 1
+		if [ "$size" -ne "$new_size" ]; then
+			if [ "$rootfs_partition_grown" = 1 ]; then
+				autogrow_log 'Partition grown; rebooting to load its new size'
+				sync
+				reboot
+			else
+				autogrow_log 'Kernel partition size is stale; a reboot is needed'
+			fi
+			return 0
+		fi
+	fi
+
+	# Run even when the partition already fills the disk: sysupgrade may have
+	# preserved the enlarged partition but installed a smaller filesystem.
+	if resize2fs "/dev/$root"; then
+		autogrow_log "Root filesystem now fills $root"
+	else
+		autogrow_log 'Filesystem resize failed; it will be retried at the next boot'
+		return 1
+	fi
+}

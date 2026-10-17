@@ -352,7 +352,9 @@ define Device/nsy_g68-plus
   DEVICE_MODEL := G68-Plus
   DEVICE_DTS := rk3568-nsy-g68-plus
   UBOOT_DEVICE_NAME := nsy-g68-plus-rk3568
-  DEVICE_PACKAGES := kmod-mt7916-firmware kmod-switch-rtl8367b wpad-openssl
+  FILESYSTEMS := ext4
+  DEVICE_PACKAGES := kmod-mt7916-firmware kmod-switch-rtl8367b swconfig wpad-openssl \
+	sfdisk resize2fs kmod-inet-diag kmod-nft-tproxy kmod-tun
 endef
 TARGET_DEVICES += nsy_g68-plus
 

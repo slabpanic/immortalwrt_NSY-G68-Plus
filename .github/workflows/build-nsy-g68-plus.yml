@@ -56,6 +56,10 @@ jobs:
           CONFIG_TARGET_SUBTARGET="armv8"
           CONFIG_TARGET_PROFILE="DEVICE_nsy_g68-plus"
 
+          # Only build ext4 images; grow the root partition on the device
+          CONFIG_TARGET_ROOTFS_EXT4FS=y
+          # CONFIG_TARGET_ROOTFS_SQUASHFS is not set
+
           # Bootloader / firmware (required to assemble the rockchip image)
           CONFIG_PACKAGE_trusted-firmware-a-rk3568=y
           CONFIG_PACKAGE_u-boot-nsy-g68-plus-rk3568=y
